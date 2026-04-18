@@ -1,7 +1,7 @@
 # Listening Brain — GPU worker (RunPod Serverless)
 # Bakes model weights into the image so cold starts don't pay download cost.
 
-FROM runpod/pytorch:2.1.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/pytorch:1.0.3-cu1281-torch271-ubuntu2204
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
