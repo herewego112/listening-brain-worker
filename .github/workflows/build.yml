@@ -39,15 +39,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase repo name
+        id: repo
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}:latest
           build-args: |
             HF_TOKEN=${{ secrets.HF_TOKEN }}
-          cache-from: type=gha
-          cache-to:   type=gha,mode=max
+          provenance: false
