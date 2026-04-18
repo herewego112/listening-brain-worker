@@ -33,9 +33,26 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          set -x
           IMG="ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')"
-          echo "building $IMG:latest"
+          mkdir -p build-logs
+          echo "building $IMG:latest" | tee build-logs/build.log
           docker build \
+            --progress=plain \
             --build-arg HF_TOKEN="$HF_TOKEN" \
-            -t "$IMG:latest" .
-          docker push "$IMG:latest"
+            -t "$IMG:latest" . 2>&1 | tee -a build-logs/build.log
+          BUILD_RC=${PIPESTATUS[0]}
+          echo "docker build exit code: $BUILD_RC" | tee -a build-logs/build.log
+          if [ $BUILD_RC -ne 0 ]; then
+            tail -200 build-logs/build.log
+            exit $BUILD_RC
+          fi
+          docker push "$IMG:latest" 2>&1 | tee -a build-logs/push.log
+
+      - name: Upload build log (artifact, public)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: build-logs/
+          retention-days: 7
