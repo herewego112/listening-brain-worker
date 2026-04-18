@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.log
+*.db
+incoming/
+captures/
+logs/
+quarantine/
