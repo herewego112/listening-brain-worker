@@ -9,8 +9,12 @@ ENV HF_HOME=/models/hf
 ENV TORCH_HOME=/models/torch
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg libsndfile1 git curl ca-certificates \
+    ffmpeg libsndfile1 git curl ca-certificates build-essential \
   && rm -rf /var/lib/apt/lists/*
+
+# Rust toolchain — deepfilternet's deepfilterlib compiles from source on Python 3.12
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
