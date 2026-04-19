@@ -350,6 +350,49 @@ def _stage(name: str, t0: float) -> None:
     print(f"[stage] {name}  t={time.time()-t0:.1f}s", flush=True)
 
 
+def process_session_mvp(session_id: int, chunks: list[dict], enrolled: dict) -> dict:
+    """Minimal path: download → load audio → Whisper → return.
+
+    Deliberately skips VAD, denoise, diarize, speaker-ID. Used to prove GPU +
+    Whisper transcription work end-to-end before layering complexity back.
+    """
+    t0 = time.time()
+    _stage("MVP START", t0)
+
+    # 1) download + decode all chunks (we only expect 1 for a smoke test)
+    audio_by_id: dict[int, np.ndarray] = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        for c in chunks:
+            local = tmp_path / f"{c['chunk_id']}.opus"
+            download(c["audio_url"], local)
+            audio_by_id[c["chunk_id"]] = load_audio(local)
+            print(f"[mvp] chunk {c['chunk_id']} samples={len(audio_by_id[c['chunk_id']])} "
+                  f"dur={len(audio_by_id[c['chunk_id']])/TARGET_SR:.1f}s", flush=True)
+    _stage("downloads done", t0)
+
+    # 2) concat in chronological order (no VAD trim)
+    merged, spans = concat_chunks_by_time(chunks, audio_by_id)
+    _stage(f"concat done  samples={len(merged)}  dur={len(merged)/TARGET_SR:.1f}s", t0)
+    if len(merged) == 0:
+        return {"session_id": session_id, "segments": [],
+                "processing_ms": int(1000*(time.time()-t0)),
+                "note": "empty audio"}
+
+    # 3) transcribe raw audio (no denoise)
+    text_segs = transcribe(merged)
+    _stage(f"transcribe done  segs={len(text_segs)}", t0)
+
+    # 4) shape the response. Plain text_segs from faster-whisper, wrapped.
+    return {
+        "session_id": session_id,
+        "segments": text_segs,
+        "duration_s": round(len(merged) / TARGET_SR, 2),
+        "processing_ms": int(1000 * (time.time() - t0)),
+        "mvp": True,
+    }
+
+
 def process_session(session_id: int, chunks: list[dict],
                     enrolled: dict[str, str]) -> dict:
     t0 = time.time()

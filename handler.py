@@ -36,12 +36,16 @@ except Exception as e:
 
 # probe: our pipeline module (heaviest import)
 try:
-    from pipeline import process_session
+    from pipeline import process_session, process_session_mvp
     print(f"[BOOT 3] pipeline imported OK  t={time.time()-_t0:.1f}s", flush=True)
 except Exception as e:
     print(f"[BOOT 3] pipeline import FAILED: {type(e).__name__}: {e}", flush=True)
     traceback.print_exc(file=sys.stderr)
     raise
+
+# MVP mode skips VAD/denoise/diarize/speaker-ID to isolate Whisper + GPU
+MVP_MODE = os.environ.get("MVP_MODE", "1") == "1"
+print(f"[BOOT 3a] MVP_MODE={MVP_MODE}", flush=True)
 
 print(f"[BOOT 4] handler ready  total_boot={time.time()-_t0:.1f}s", flush=True)
 
@@ -53,10 +57,11 @@ def handler(event):
         session_id = int(inp["session_id"])
         chunks = inp.get("chunks") or []
         enrolled = inp.get("enrolled_speakers") or {}
-        print(f"[JOB {session_id}] received  chunks={len(chunks)}  enrolled={list(enrolled)}", flush=True)
+        print(f"[JOB {session_id}] received  chunks={len(chunks)}  enrolled={list(enrolled)}  mvp={MVP_MODE}", flush=True)
         if not chunks:
             return {"error": "no chunks provided", "session_id": session_id}
-        result = process_session(session_id, chunks, enrolled)
+        fn = process_session_mvp if MVP_MODE else process_session
+        result = fn(session_id, chunks, enrolled)
         print(f"[JOB {session_id}] done  elapsed={time.time()-t0:.1f}s", flush=True)
         return result
     except Exception as e:
