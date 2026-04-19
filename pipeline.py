@@ -110,12 +110,24 @@ def spk_encoder():
 
 # ── stages ──────────────────────────────────────────────────────────────────
 
+_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
 def download(url: str, dest: Path) -> None:
-    r = requests.get(url, timeout=60, stream=True)
-    r.raise_for_status()
-    with open(dest, "wb") as f:
-        for ch in r.iter_content(1 << 16):
-            f.write(ch)
+    last_err = None
+    for attempt in range(3):
+        try:
+            r = requests.get(url, timeout=60, stream=True,
+                             headers={"User-Agent": _UA, "Accept": "*/*"},
+                             allow_redirects=True)
+            r.raise_for_status()
+            with open(dest, "wb") as f:
+                for ch in r.iter_content(1 << 16):
+                    f.write(ch)
+            return
+        except Exception as e:
+            last_err = e
+            time.sleep(1 + attempt * 2)
+    raise last_err
 
 
 def load_audio(path: Path) -> np.ndarray:
