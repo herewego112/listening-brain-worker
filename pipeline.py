@@ -7,6 +7,7 @@ Output: list of segments (start_offset_s, end_offset_s, speaker, text, confidenc
 """
 from __future__ import annotations
 import os
+import sys
 import tempfile
 import time
 from dataclasses import dataclass, asdict
@@ -16,6 +17,8 @@ import numpy as np
 import requests
 import soundfile as sf
 import torch
+
+print(f"[pipeline] basic imports OK  numpy={np.__version__}", flush=True)
 
 # Patch torch.load to default weights_only=False (torch 2.6+ broke pyannote 3.4.x
 # checkpoints that include TorchVersion objects outside the safe-globals list).
@@ -343,9 +346,14 @@ def assign_speakers(segments_text: list[dict], segments_diar: list[dict],
 
 # ── orchestrator ────────────────────────────────────────────────────────────
 
+def _stage(name: str, t0: float) -> None:
+    print(f"[stage] {name}  t={time.time()-t0:.1f}s", flush=True)
+
+
 def process_session(session_id: int, chunks: list[dict],
                     enrolled: dict[str, str]) -> dict:
     t0 = time.time()
+    _stage("START", t0)
 
     # 1) download all chunks
     audio_by_id: dict[int, np.ndarray] = {}
@@ -355,12 +363,17 @@ def process_session(session_id: int, chunks: list[dict],
             local = tmp_path / f"{c['chunk_id']}.opus"
             download(c["audio_url"], local)
             audio_by_id[c["chunk_id"]] = load_audio(local)
+            print(f"[stage] downloaded chunk {c['chunk_id']}  "
+                  f"samples={len(audio_by_id[c['chunk_id']])}", flush=True)
+    _stage("downloads done", t0)
 
     # 2) per-chunk VAD trim (cheap, removes silence)
     audio_by_id = {k: vad_trim(v) for k, v in audio_by_id.items()}
+    _stage("vad_trim done", t0)
 
     # 3) concat in chronological order, produce merged audio + span index
     merged, _spans = concat_chunks_by_time(chunks, audio_by_id)
+    _stage(f"concat done  samples={len(merged)}", t0)
     if len(merged) == 0:
         return {"session_id": session_id, "segments": [],
                 "unknown_speakers": [], "processing_ms": int(1000*(time.time()-t0)),
@@ -368,17 +381,22 @@ def process_session(session_id: int, chunks: list[dict],
 
     # 4) denoise twice — mild for diarization, strong for transcription
     mild_clean   = denoise(merged, strong=False)
+    _stage("denoise mild done", t0)
     strong_clean = denoise(merged, strong=True)
+    _stage("denoise strong done", t0)
 
     # 5) transcribe (Whisper on strong-cleaned)
     text_segs = transcribe(strong_clean)
+    _stage(f"transcribe done  segs={len(text_segs)}", t0)
 
     # 6) diarize (pyannote on mild-cleaned)
     diar_segs = diarize(mild_clean)
+    _stage(f"diarize done  segs={len(diar_segs)}", t0)
 
     # 7) speaker identification — match against enrolled library
     library = load_enrolled(enrolled)
     final = assign_speakers(text_segs, diar_segs, mild_clean, library)
+    _stage(f"assign_speakers done  segs={len(final)}", t0)
 
     unknown = sorted({s.speaker_name for s in final if s.speaker_name.startswith("unknown_")})
 
