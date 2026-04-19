@@ -17,10 +17,10 @@ deepfilternet==0.5.6
 faster-whisper==1.0.3
 ctranslate2==4.4.0
 
-# Diarization
-pyannote.audio==3.3.1
+# Diarization — 3.4.x handles torch.load weights_only=True (new default in torch 2.6+)
+pyannote.audio==3.4.0
 
-# Pin huggingface-hub to <1.0 — pyannote 3.3.1 still uses the pre-1.0 'use_auth_token' kwarg
+# Pin huggingface-hub to <1.0 — pyannote still uses pre-1.0 'use_auth_token' kwarg
 huggingface-hub<1.0,>=0.25
 
 # Speaker embedding / ID
