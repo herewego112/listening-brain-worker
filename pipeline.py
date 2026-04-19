@@ -21,7 +21,7 @@ import torch
 # checkpoints that include TorchVersion objects outside the safe-globals list).
 _orig_torch_load = torch.load
 def _patched_torch_load(*args, **kwargs):
-    kwargs.setdefault("weights_only", False)
+    kwargs["weights_only"] = False   # force override, pyannote + lightning still pass True
     return _orig_torch_load(*args, **kwargs)
 torch.load = _patched_torch_load
 
