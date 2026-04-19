@@ -20,6 +20,9 @@ ctranslate2==4.4.0
 # Diarization
 pyannote.audio==3.3.1
 
+# Pin huggingface-hub to <1.0 — pyannote 3.3.1 still uses the pre-1.0 'use_auth_token' kwarg
+huggingface-hub<1.0,>=0.25
+
 # Speaker embedding / ID
 speechbrain==1.0.2
 
