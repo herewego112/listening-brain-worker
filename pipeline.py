@@ -17,6 +17,14 @@ import requests
 import soundfile as sf
 import torch
 
+# Patch torch.load to default weights_only=False (torch 2.6+ broke pyannote 3.4.x
+# checkpoints that include TorchVersion objects outside the safe-globals list).
+_orig_torch_load = torch.load
+def _patched_torch_load(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _orig_torch_load(*args, **kwargs)
+torch.load = _patched_torch_load
+
 TARGET_SR = 16000
 UNKNOWN_SIM_THRESHOLD = 0.55       # below this cosine sim → unknown speaker
 KNOWN_SIM_THRESHOLD   = 0.70       # above this → confident match

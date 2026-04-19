@@ -6,6 +6,16 @@ import os
 import sys
 from pathlib import Path
 
+# Patch torch.load to default weights_only=False — pyannote's internal
+# Model.from_pretrained loads checkpoints that include TorchVersion objects which
+# are not in the default safe-globals allow-list of torch 2.6+.
+import torch as _torch
+_orig_torch_load = _torch.load
+def _patched_torch_load(*args, **kwargs):
+    kwargs.setdefault("weights_only", False)
+    return _orig_torch_load(*args, **kwargs)
+_torch.load = _patched_torch_load
+
 
 def log(*a):
     print(*a, file=sys.stderr, flush=True)
