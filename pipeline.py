@@ -141,7 +141,12 @@ def vad_trim(audio: np.ndarray) -> np.ndarray:
     """Drop leading/trailing silence. Doesn't split mid-speech."""
     from silero_vad import get_speech_timestamps
     model = vad()
-    tensor = torch.from_numpy(audio)
+    # match input device to model's device (parameters() may be empty for JIT — fall back to next buffer)
+    try:
+        dev = next(model.parameters()).device
+    except StopIteration:
+        dev = next(model.buffers()).device
+    tensor = torch.from_numpy(audio).to(dev)
     ts = get_speech_timestamps(tensor, model, sampling_rate=TARGET_SR,
                                min_speech_duration_ms=250,
                                min_silence_duration_ms=500)
